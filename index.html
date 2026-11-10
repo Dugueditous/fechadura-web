@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fechadura Cloud - Firebase</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f5; text-align: center; padding: 20px; margin: 0; }
+    .card { background: #fff; padding: 25px; border-radius: 15px; max-width: 380px; margin: 30px auto; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
+    .tab { flex: 1; padding: 10px; cursor: pointer; font-weight: bold; color: #666; }
+    .tab.active { color: #2196F3; border-bottom: 3px solid #2196F3; }
+    .form-group { display: none; }
+    .form-group.active { display: block; }
+    input { font-size: 18px; padding: 12px; width: 100%; margin-bottom: 15px; border: 2px solid #ddd; border-radius: 8px; outline: none; text-align: center; }
+    button { font-size: 18px; padding: 14px; background: #2196F3; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; }
+    .msg { margin-top: 15px; font-weight: bold; }
+    .sucesso { color: #2e7d32; }
+    .erro { color: #c62828; }
+  </style>
+  
+  <!-- SDK do Firebase via CDN -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h2>Fechadura Cloud</h2>
+    <div class="tabs">
+      <div class="tab active" onclick="mostrarAba('login')">Entrar</div>
+      <div class="tab" onclick="mostrarAba('cadastrar')">Criar Usuário</div>
+    </div>
+
+    <div id="aba-login" class="form-group active">
+      <input type="text" id="user-login" placeholder="Usuário">
+      <input type="password" id="pin-login" maxlength="6" placeholder="PIN (Senha)">
+      <button onclick="fazerLogin()">DESTRAVAR</button>
+    </div>
+
+    <div id="aba-cadastrar" class="form-group">
+      <input type="text" id="user-novo" placeholder="Novo Usuário">
+      <input type="password" id="pin-novo" maxlength="6" placeholder="PIN Numérico">
+      <button onclick="cadastrarUsuario()">CADASTRAR</button>
+    </div>
+
+    <p id="resposta" class="msg"></p>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      databaseURL: "https://fechadura-91aa4-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function mostrarAba(aba) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.form-group').forEach(f => f.classList.remove('active'));
+      document.getElementById('resposta').innerHTML = "";
+      if(aba === 'login') {
+        document.querySelectorAll('.tab')[0].classList.add('active');
+        document.getElementById('aba-login').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab')[1].classList.add('active');
+        document.getElementById('aba-cadastrar').classList.add('active');
+      }
+    }
+
+    function fazerLogin() {
+      let user = document.getElementById('user-login').value.trim();
+      let pin = document.getElementById('pin-login').value.trim();
+      let msg = document.getElementById('resposta');
+
+      if (!user || !pin) {
+        msg.className = "msg erro"; msg.innerHTML = "Preencha tudo!"; return;
+      }
+
+      db.ref('usuarios/' + user).once('value').then(snapshot => {
+        if (snapshot.exists() && snapshot.val().pin === pin) {
+          msg.className = "msg sucesso";
+          msg.innerHTML = "🔓 Comando enviado ao ESP32!";
+          db.ref('comando').set({ acao: "ABRIR", usuario: user, timestamp: Date.now() });
+        } else {
+          msg.className = "msg erro";
+          msg.innerHTML = "❌ Usuário ou PIN incorreto!";
+        }
+      });
+    }
+
+    function cadastrarUsuario() {
+      let user = document.getElementById('user-novo').value.trim();
+      let pin = document.getElementById('pin-novo').value.trim();
+      let msg = document.getElementById('resposta');
+
+      if (!user || !pin) {
+        msg.className = "msg erro"; msg.innerHTML = "Preencha tudo!"; return;
+      }
+
+      db.ref('usuarios/' + user).set({ pin: pin }).then(() => {
+        msg.className = "msg sucesso";
+        msg.innerHTML = "✅ Usuário salvo na nuvem!";
+        document.getElementById('user-novo').value = "";
+        document.getElementById('pin-novo').value = "";
+      });
+    }
+  </script>
+</body>
+</html>
